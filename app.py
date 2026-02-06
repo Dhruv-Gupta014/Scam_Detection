@@ -42,7 +42,13 @@ def root():
             "batch": "POST /api/v1/batch",
             "stats": "GET /api/v1/stats",
             "categories": "GET /api/v1/scam-categories"
-        }
+        },
+        "authentication": {
+            "method": "Header",
+            "header": "X-API-Key",
+            "example": "scam-detection-key-2026"
+        },
+        "rate_limit": "60 requests/minute"
     }), 200
 
 @app.route("/health", methods=["GET", "OPTIONS"])
@@ -177,10 +183,7 @@ def analyze_scam():
             "details": str(e) if DEBUG else None
         }), 500
 
-@app.route("/api/v1/batch", methods=["POST"])
-@check_api_key
-@check_rate_limit
-@validate_json_request
+@app.route("/api/v1/batch", methods=["POST", "OPTIONS"])
 def analyze_batch():
     """
     Batch analysis endpoint for multiple messages
@@ -197,6 +200,25 @@ def analyze_batch():
         ]
     }
     """
+    # Handle CORS preflight
+    if request.method == "OPTIONS":
+        return "", 200
+    
+    # Check auth
+    api_key = request.headers.get("X-API-Key")
+    if not api_key:
+        return jsonify({
+            "error": "Missing API key",
+            "message": "Please provide X-API-Key header",
+            "code": "AUTH_MISSING_KEY"
+        }), 401
+    
+    if api_key != API_KEY:
+        return jsonify({
+            "error": "Invalid API key",
+            "code": "AUTH_INVALID_KEY"
+        }), 401
+    
     try:
         start_time = datetime.now(timezone.utc)
         data = request.get_json()
@@ -271,20 +293,52 @@ def analyze_batch():
             "details": str(e) if DEBUG else None
         }), 500
 
-@app.route("/api/v1/stats", methods=["GET"])
-@check_api_key
+@app.route("/api/v1/stats", methods=["GET", "OPTIONS"])
 def get_stats():
     """Get API statistics"""
+    if request.method == "OPTIONS":
+        return "", 200
+    
+    api_key = request.headers.get("X-API-Key")
+    if not api_key:
+        return jsonify({
+            "error": "Missing API key",
+            "message": "Please provide X-API-Key header",
+            "code": "AUTH_MISSING_KEY"
+        }), 401
+    
+    if api_key != API_KEY:
+        return jsonify({
+            "error": "Invalid API key",
+            "code": "AUTH_INVALID_KEY"
+        }), 401
+    
     return jsonify({
         "requests_processed": app.request_count,
         "uptime_seconds": int((datetime.now(timezone.utc) - app.start_time).total_seconds()),
         "timestamp": datetime.now(timezone.utc).isoformat()
     }), 200
 
-@app.route("/api/v1/scam-categories", methods=["GET"])
-@check_api_key
+@app.route("/api/v1/scam-categories", methods=["GET", "OPTIONS"])
 def get_scam_categories():
     """Get list of recognized scam categories"""
+    if request.method == "OPTIONS":
+        return "", 200
+    
+    api_key = request.headers.get("X-API-Key")
+    if not api_key:
+        return jsonify({
+            "error": "Missing API key",
+            "message": "Please provide X-API-Key header",
+            "code": "AUTH_MISSING_KEY"
+        }), 401
+    
+    if api_key != API_KEY:
+        return jsonify({
+            "error": "Invalid API key",
+            "code": "AUTH_INVALID_KEY"
+        }), 401
+    
     from config import SCAM_KEYWORDS
     return jsonify({
         "scam_categories": list(SCAM_KEYWORDS.keys()),
@@ -292,63 +346,7 @@ def get_scam_categories():
         "description": "List of scam categories used for classification"
     }), 200
 
-@app.route("/", methods=["GET"])
-def home():
-    """Home endpoint with API documentation"""
-    return jsonify({
-        "name": "Agentic Honey-Pot Scam Detection API",
-        "version": "1.0.0",
-        "description": "AI-powered API for detecting and extracting intelligence from scam messages",
-        "endpoints": {
-            "health": {
-                "method": "GET",
-                "path": "/health",
-                "description": "Health check endpoint",
-                "auth_required": False
-            },
-            "analyze": {
-                "method": "POST",
-                "path": "/api/v1/analyze",
-                "description": "Analyze a single scam message",
-                "auth_required": True,
-                "body": {
-                    "message": "string (required)",
-                    "message_id": "string (optional)",
-                    "source": "string (optional)"
-                }
-            },
-            "batch": {
-                "method": "POST",
-                "path": "/api/v1/batch",
-                "description": "Analyze multiple messages",
-                "auth_required": True,
-                "body": {
-                    "messages": "array (required)"
-                }
-            },
-            "stats": {
-                "method": "GET",
-                "path": "/api/v1/stats",
-                "description": "Get API statistics",
-                "auth_required": True
-            },
-            "scam_categories": {
-                "method": "GET",
-                "path": "/api/v1/scam-categories",
-                "description": "Get recognized scam categories",
-                "auth_required": True
-            }
-        },
-        "authentication": {
-            "method": "Header",
-            "header": "X-API-Key",
-            "example": f"X-API-Key: {API_KEY}"
-        },
-        "rate_limit": {
-            "requests_per_minute": 60,
-            "identifier": "X-Client-ID or IP address"
-        }
-    }), 200
+
 
 @app.errorhandler(404)
 def not_found(error):
