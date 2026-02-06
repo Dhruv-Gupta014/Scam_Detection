@@ -27,9 +27,29 @@ app.start_time = datetime.now(timezone.utc)
 
 # ==================== API Routes ====================
 
-@app.route("/health", methods=["GET"])
+@app.route("/", methods=["GET", "OPTIONS"])
+def root():
+    """Root endpoint - API info"""
+    if request.method == "OPTIONS":
+        return "", 200
+    return jsonify({
+        "service": "Agentic Honey-Pot Scam Detection API",
+        "version": "1.0.0",
+        "status": "online",
+        "endpoints": {
+            "health": "GET /health",
+            "analyze": "POST /api/v1/analyze",
+            "batch": "POST /api/v1/batch",
+            "stats": "GET /api/v1/stats",
+            "categories": "GET /api/v1/scam-categories"
+        }
+    }), 200
+
+@app.route("/health", methods=["GET", "OPTIONS"])
 def health_check():
     """Health check endpoint"""
+    if request.method == "OPTIONS":
+        return "", 200
     return jsonify({
         "status": "healthy",
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -37,10 +57,7 @@ def health_check():
         "requests_processed": app.request_count
     }), 200
 
-@app.route("/api/v1/analyze", methods=["POST"])
-@check_api_key
-@check_rate_limit
-@validate_json_request
+@app.route("/api/v1/analyze", methods=["POST", "OPTIONS"])
 def analyze_scam():
     """
     Main endpoint to analyze scam messages
@@ -68,6 +85,25 @@ def analyze_scam():
         "execution_time_ms": 45
     }
     """
+    # Handle CORS preflight
+    if request.method == "OPTIONS":
+        return "", 200
+    
+    # Now check auth and other decorators
+    api_key = request.headers.get("X-API-Key")
+    if not api_key:
+        return jsonify({
+            "error": "Missing API key",
+            "message": "Please provide X-API-Key header",
+            "code": "AUTH_MISSING_KEY"
+        }), 401
+    
+    if api_key != API_KEY:
+        return jsonify({
+            "error": "Invalid API key",
+            "code": "AUTH_INVALID_KEY"
+        }), 401
+    
     try:
         start_time = datetime.now(timezone.utc)
         data = request.get_json()
