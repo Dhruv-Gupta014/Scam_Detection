@@ -27,7 +27,7 @@ app.start_time = datetime.now(timezone.utc)
 
 # ==================== API Routes ====================
 
-@app.route("/", methods=["GET", "OPTIONS"])
+@app.route("/", methods=["GET", "POST", "OPTIONS"])
 def root():
     """Root endpoint - API info"""
     if request.method == "OPTIONS":
@@ -51,7 +51,7 @@ def root():
         "rate_limit": "60 requests/minute"
     }), 200
 
-@app.route("/health", methods=["GET", "OPTIONS"])
+@app.route("/health", methods=["GET", "POST", "OPTIONS"])
 def health_check():
     """Health check endpoint"""
     if request.method == "OPTIONS":
